@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+<title>ביופידבק PPG</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:#080c10;color:#dde6f0;font-family:sans-serif;direction:rtl;min-height:100vh}
+header{padding:16px 20px;border-bottom:1px solid #1a2535;display:flex;justify-content:space-between;align-items:center}
+h1{font-size:18px;font-weight:700}
+h1 span{color:#ff3b5c}
+#dot{width:8px;height:8px;border-radius:50%;background:#4a6070;transition:all .3s}
+#dot.on{background:#00e5a0;box-shadow:0 0 8px #00e5a0;animation:blink 1.5s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+.tabs{display:flex;gap:6px;padding:12px 16px 0}
+.tab{flex:1;padding:9px 0;border-radius:8px;border:1px solid #1a2535;background:transparent;color:#4a6070;font-size:13px;cursor:pointer;font-family:sans-serif}
+.tab.active{border-color:#00d4aa;background:rgba(0,212,170,.13);color:#00d4aa}
+
+.page{display:none;padding:16px;flex-direction:column;gap:14px}
+.page.active{display:flex}
+
+.card{background:#0f1520;border:1px solid #1a2535;border-radius:14px;padding:14px}
+.card-title{font-size:10px;color:#4a6070;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+
+/* finger */
+.finger-row{display:flex;align-items:center;gap:14px}
+#fingerIcon{width:66px;height:66px;border-radius:50%;background:#080c10;border:2px solid #1a2535;display:flex;align-items:center;justify-content:center;font-size:30px;flex-shrink:0;transition:all .3s}
+#fingerIcon.active{border-color:#ff3b5c;box-shadow:0 0 20px rgba(255,59,92,.3);animation:hb .9s infinite}
+@keyframes hb{0%,100%{transform:scale(1)}35%{transform:scale(1.07)}65%{transform:scale(1.03)}}
+#fingerText{font-size:12px;color:#4a6070;line-height:1.6}
+#fingerText.active{color:#dde6f0}
+.qbar-wrap{height:4px;background:#1a2535;border-radius:4px;margin-top:6px;overflow:hidden}
+#qbar{height:100%;width:0;background:#4a6070;border-radius:4px;transition:width .4s,background .4s}
+#qtext{font-size:10px;color:#4a6070;margin-top:3px}
+
+/* BPM */
+.bpm-center{text-align:center;padding:6px 0}
+#bpmNum{font-family:monospace;font-size:72px;font-weight:700;color:#4a6070;line-height:1;transition:color .4s}
+.bpm-unit{font-size:12px;color:#4a6070;letter-spacing:2px;margin-top:2px}
+#bpmZone{font-size:12px;margin-top:6px;letter-spacing:1px}
+
+/* waveform */
+#waveCanvas{width:100%;height:68px;display:block;border-radius:6px}
+
+/* metrics grid */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mc{background:#080c10;border:1px solid #1a2535;border-radius:10px;padding:10px 12px}
+.mc .ml{font-size:9px;color:#4a6070;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px}
+.mc .mv{font-family:monospace;font-size:22px;font-weight:700}
+.mc .ms{font-size:9px;color:#4a6070;margin-top:2px}
+
+/* breath circle */
+.breath-center{display:flex;justify-content:center;padding:10px 0;position:relative}
+#breathOuter{position:relative;width:180px;height:180px;display:flex;align-items:center;justify-content:center}
+#breathCore{border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:all 80ms linear;border:2px solid #00d4aa;background:radial-gradient(circle at 38% 38%,rgba(0,212,170,.27),rgba(0,212,170,.1))}
+#bPhase{font-size:10px;letter-spacing:2px;font-weight:700;color:#00d4aa}
+#bCount{font-family:monospace;font-size:28px;font-weight:700;color:#dde6f0}
+.bprog-wrap{height:3px;background:#1a2535;border-radius:3px;overflow:hidden;margin-top:8px}
+#bprog{height:100%;width:0;border-radius:3px;background:#00d4aa;transition:width 80ms linear}
+
+/* pattern btns */
+.pat-list{display:flex;flex-direction:column;gap:6px}
+.pat{padding:9px 12px;border-radius:8px;background:#080c10;border:1px solid #1a2535;color:#dde6f0;font-size:12px;cursor:pointer;text-align:right;display:flex;justify-content:space-between;align-items:center;font-family:sans-serif;transition:all .15s}
+.pat.sel{background:rgba(0,212,170,.1);border-color:#00d4aa;color:#00d4aa}
+.pat-mono{font-family:monospace;font-size:10px;color:#4a6070}
+
+/* gauge */
+.gauge-center{display:flex;justify-content:center}
+
+/* warn */
+#torchWarn{display:none;font-size:11px;color:#ffb830;padding:8px 10px;background:rgba(26,20,0,.6);border:1px solid rgba(255,184,48,.2);border-radius:8px;line-height:1.5;margin-top:10px}
+#torchWarn.show{display:block}
+
+/* FABs */
+.fab-area{position:fixed;bottom:0;left:0;right:0;padding:12px 16px 20px;background:linear-gradient(0deg,#080c10 60%,transparent);display:flex;gap:10px;z-index:99}
+.fab{flex:1;padding:14px;border-radius:50px;border:none;font-size:14px;font-weight:700;cursor:pointer;transition:all .25s;font-family:sans-serif}
+#fabPPG{background:linear-gradient(135deg,#ff3b5c,#c0143c);color:#fff;box-shadow:0 6px 24px rgba(255,59,92,.35)}
+#fabPPG.off{background:#1e293b;color:#4a6070;box-shadow:none}
+#fabBreath{background:linear-gradient(135deg,#00d4aa,#38bdf8);color:#fff;box-shadow:0 6px 24px rgba(0,212,170,.35)}
+#fabBreath.off{background:#1e293b;color:#4a6070;box-shadow:none}
+
+.bottom-pad{height:80px}
+
+/* session rows */
+.sess-list{display:flex;flex-direction:column;gap:6px}
+.sess-row{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#080c10;border-radius:8px;font-size:11px}
+
+video,canvas.hidden{display:none}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ביו<span>פידבק</span> PPG</h1>
+  <div id="dot"></div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('ppg',this)">❤️ קצב לב</button>
+  <button class="tab" onclick="showTab('breath',this)">🫁 נשימה</button>
+  <button class="tab" onclick="showTab('data',this)">📊 נתונים</button>
+</div>
+
+<!-- PPG PAGE -->
+<div class="page active" id="page-ppg">
+  <div class="card">
+    <div class="card-title">חיישן PPG · מצלמה + פלאש</div>
+    <div class="finger-row">
+      <div id="fingerIcon">☝️</div>
+      <div style="flex:1">
+        <div id="fingerText">לחץ "התחל PPG" כדי למדוד</div>
+        <div class="qbar-wrap"><div id="qbar"></div></div>
+        <div id="qtext"></div>
+      </div>
+    </div>
+    <div id="torchWarn">⚠ הפלאש לא הופעל — ודא Chrome Android + הרשאת מצלמה</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">קצב לב</div>
+    <div class="bpm-center">
+      <div id="bpmNum">--</div>
+      <div class="bpm-unit">BPM</div>
+      <div id="bpmZone"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">גל PPG</div>
+    <canvas id="waveCanvas"></canvas>
+  </div>
+
+  <div class="grid2">
+    <div class="mc"><div class="ml">אמינות אות</div><div class="mv" id="mcQ" style="color:#4a6070">--</div><div class="ms" id="mcQS">ממתין</div></div>
+    <div class="mc"><div class="ml">זמן מדידה</div><div class="mv" id="mcT" style="color:#dde6f0">0s</div><div class="ms" id="mcTS">נדרש 15s</div></div>
+    <div class="mc"><div class="ml">HR גבוה</div><div class="mv" id="mcMax" style="color:#ffb830">--</div><div class="ms">bpm</div></div>
+    <div class="mc"><div class="ml">HR נמוך</div><div class="mv" id="mcMin" style="color:#38bdf8">--</div><div class="ms">bpm</div></div>
+  </div>
+
+  <div class="card" style="font-size:12px;color:#4a6070;line-height:1.7">
+    <div class="card-title">הוראות</div>
+    <ol style="padding-right:16px;display:flex;flex-direction:column;gap:5px">
+      <li>לחץ "התחל PPG" ואשר גישה למצלמה</li>
+      <li>הנח קצה אצבע על עדשת המצלמה האחורית</li>
+      <li>כסה לחלוטין — אל תלחץ חזק מדי</li>
+      <li>החזק יציב ~15 שניות</li>
+    </ol>
+  </div>
+  <div class="bottom-pad"></div>
+</div>
+
+<!-- BREATH PAGE -->
+<div class="page" id="page-breath">
+  <div class="card">
+    <div class="card-title">תבנית נשימה</div>
+    <div class="pat-list" id="patList"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="display:flex;justify-content:space-between">
+      <span>מעגל נשימה</span>
+      <span id="hrInBreath" style="font-size:10px;color:#4a6070"></span>
+    </div>
+    <div class="breath-center">
+      <div id="breathOuter">
+        <div id="breathCore" style="width:90px;height:90px">
+          <span style="font-size:28px">🫁</span>
+        </div>
+      </div>
+    </div>
+    <div class="bprog-wrap"><div id="bprog"></div></div>
+  </div>
+
+  <div class="grid2" id="breathMetrics" style="display:none">
+    <div class="mc"><div class="ml">משך סשן</div><div class="mv" id="bElapsed" style="color:#00d4aa">0s</div></div>
+    <div class="mc"><div class="ml">קוהרנטיות</div><div class="mv" id="bCoher" style="color:#a78bfa">2.1</div><div class="ms">~בינונית</div></div>
+  </div>
+
+  <div class="card" id="sessCard" style="display:none">
+    <div class="card-title">היסטוריית סשנים</div>
+    <div class="sess-list" id="sessList"></div>
+  </div>
+  <div class="bottom-pad"></div>
+</div>
+
+<!-- DATA PAGE -->
+<div class="page" id="page-data">
+  <div class="card">
+    <div class="card-title">רמת לחץ</div>
+    <div class="gauge-center">
+      <svg id="gaugeSvg" width="180" height="108" viewBox="0 0 180 108">
+        <path d="M15 100 A70 70 0 0 1 165 100" fill="none" stroke="#1a2535" stroke-width="10" stroke-linecap="round"/>
+        <path id="gaugeArc" d="M15 100 A70 70 0 0 1 165 100" fill="none" stroke="url(#gg)" stroke-width="10" stroke-linecap="round" stroke-dasharray="0 220"/>
+        <defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#00d4aa"/><stop offset="50%" stop-color="#ffb830"/><stop offset="100%" stop-color="#ff3b5c"/>
+        </linearGradient></defs>
+        <g id="needle" transform="rotate(-135,90,100)">
+          <line x1="90" y1="100" x2="90" y2="42" stroke="#4a6070" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="90" cy="100" r="5" fill="#4a6070"/>
+        </g>
+        <text id="stressNum" x="90" y="87" text-anchor="middle" fill="#dde6f0" font-size="22" font-family="monospace" font-weight="700">65</text>
+        <text id="stressLbl" x="90" y="102" text-anchor="middle" fill="#ffb830" font-size="11">בינוני</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="mc"><div class="ml">קצב לב PPG</div><div class="mv" id="dBpm" style="color:#ff3b5c">--</div><div class="ms">bpm</div></div>
+    <div class="mc"><div class="ml">HRV</div><div class="mv" id="dHrv" style="color:#a78bfa">--</div><div class="ms">ms</div></div>
+    <div class="mc"><div class="ml">SpO₂</div><div class="mv" id="dSpo2" style="color:#38bdf8">98</div><div class="ms">%</div></div>
+    <div class="mc"><div class="ml">קוהרנטיות</div><div class="mv" id="dCoher" style="color:#00d4aa">2.1</div><div class="ms">/10</div></div>
+  </div>
+
+  <div id="recBox" class="card" style="font-size:12px;line-height:1.6">
+    <div class="card-title">המלצה</div>
+    <div id="recText">🟡 לחץ בינוני — נסה Box Breathing ל-5 מחזורים</div>
+  </div>
+  <div class="bottom-pad"></div>
+</div>
+
+<!-- hidden elements -->
+<video id="vid" class="hidden" playsinline muted autoplay></video>
+<canvas id="cap" class="hidden" width="1" height="1"></canvas>
+
+<div class="fab-area">
+  <button class="fab off" id="fabPPG" onclick="togglePPG()">📷 התחל PPG</button>
+  <button class="fab off" id="fabBreath" onclick="toggleBreath()">▶ נשימה</button>
+</div>
+
+<script>
+// ── Tab navigation ──────────────────────────────────────────────
+function showTab(id, btn) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Patterns ────────────────────────────────────────────────────
+const PATTERNS = {
+  'Coherent':{inhale:5,hold:0,exhale:5,label:'Coherent (HRV אופטימלי)'},
+  '4-7-8':{inhale:4,hold:7,exhale:8,label:'4-7-8 (הרגעה עמוקה)'},
+  'Box':{inhale:4,hold:4,exhale:4,label:'Box Breathing (איזון)'},
+  '2-1-4':{inhale:2,hold:1,exhale:4,label:'2-1-4 (הרגעה מהירה)'},
+};
+let selPat='Coherent';
+const patList=document.getElementById('patList');
+Object.entries(PATTERNS).forEach(([k,p])=>{
+  const b=document.createElement('button');
+  b.className='pat'+(k==='Coherent'?' sel':'');
+  b.id='pat-'+k;
+  b.innerHTML=`<span>${p.label}</span><span class="pat-mono">${p.inhale}/${p.hold}/${p.exhale}</span>`;
+  b.onclick=()=>{
+    if(breathRunning) return;
+    selPat=k;
+    document.querySelectorAll('.pat').forEach(x=>x.classList.remove('sel'));
+    b.classList.add('sel');
+  };
+  patList.appendChild(b);
+});
+
+// ── State ───────────────────────────────────────────────────────
+let ppgRunning=false, breathRunning=false;
+let stream=null, track=null;
+let redBuf=[], tsBuf=[], waveBuf=[], bpmHist=[];
+let bpm=null, bpmMin=null, bpmMax=null, hrv=null;
+let signalQ=0, ppgElapsed=0;
+let ppgAF=null, ppgTimer=null;
+let stress=65, coherence=2.1, spo2=98;
+let breathTimer=null, breathElapsed=0, breathSessions=[];
+let breathStartStress=65;
+
+// ── DSP ─────────────────────────────────────────────────────────
+function std(a){const m=a.reduce((s,v)=>s+v,0)/a.length;return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/a.length);}
+function movAvg(a,w){return a.map((_,i)=>{const s=a.slice(Math.max(0,i-w+1),i+1);return s.reduce((x,y)=>x+y,0)/s.length;});}
+function detrend(a){
+  const n=a.length,m=a.reduce((s,v)=>s+v,0)/n,xm=(n-1)/2;
+  const sl=a.reduce((s,v,i)=>s+(i-xm)*(v-m),0)/(a.reduce((s,_,i)=>s+(i-xm)**2,0)||1);
+  return a.map((v,i)=>v-m-sl*(i-xm));
+}
+function bandpass(buf){
+  if(buf.length<6)return buf;
+  const d=detrend(buf),f=movAvg(d,3),s=movAvg(d,15);
+  return f.map((v,i)=>v-(s[i]||0));
+}
+function findPeaks(sig){
+  const peaks=[],minD=10,thr=std(sig)*.4;let last=-minD;
+  for(let i=2;i<sig.length-2;i++){
+    if(i-last<minD)continue;
+    if(sig[i]>thr&&sig[i]>sig[i-1]&&sig[i]>sig[i-2]&&sig[i]>=sig[i+1]&&sig[i]>=sig[i+2]){peaks.push(i);last=i;}
+  }
+  return peaks;
+}
+function computeBPM(sig,ts){
+  if(sig.length<30)return null;
+  const pk=findPeaks(sig);if(pk.length<3)return null;
+  const iv=[];
+  for(let i=1;i<pk.length;i++){const dt=ts[pk[i]]-ts[pk[i-1]];if(dt>300&&dt<2000)iv.push(dt);}
+  if(iv.length<2)return null;
+  const avg=iv.reduce((a,b)=>a+b,0)/iv.length;
+  const b=Math.round(60000/avg);
+  if(b<30||b>220)return null;
+  return{bpm:b,intervals:iv};
+}
+function median(a){const s=[...a].sort((x,y)=>x-y),m=Math.floor(s.length/2);return s.length%2?s[m]:Math.round((s[m-1]+s[m])/2);}
+
+// ── PPG loop ────────────────────────────────────────────────────
+const vid=document.getElementById('vid');
+const cap=document.getElementById('cap');
+const capCtx=cap.getContext('2d',{willReadFrequently:true});
+
+function ppgLoop(){
+  if(!ppgRunning)return;
+  capCtx.drawImage(vid,0,0,1,1);
+  const px=capCtx.getImageData(0,0,1,1).data;
+  const r=px[0],now=Date.now();
+  redBuf.push(r);tsBuf.push(now);
+  if(redBuf.length>300){redBuf.shift();tsBuf.shift();}
+
+  signalQ=Math.min(100,Math.round(std(redBuf)*4));
+  const sm=bandpass(redBuf);
+  waveBuf=[...sm];
+
+  if(redBuf.length>=150){
+    const res=computeBPM(sm,tsBuf);
+    if(res){
+      bpmHist.push(res.bpm);
+      if(bpmHist.length>8)bpmHist.shift();
+      bpm=median(bpmHist);
+      if(bpmMax===null||bpm>bpmMax)bpmMax=bpm;
+      if(bpmMin===null||bpm<bpmMin)bpmMin=bpm;
+      if(res.intervals.length>=3){
+        const d=[];for(let i=1;i<res.intervals.length;i++)d.push(Math.abs(res.intervals[i]-res.intervals[i-1]));
+        hrv=Math.round(Math.sqrt(d.reduce((a,v)=>a+v*v,0)/d.length));
+      }
+      // update stress
+      if(bpm>90)stress=Math.min(100,stress+0.4);
+      else if(bpm<65)stress=Math.max(0,stress-0.5);
+      else stress=Math.max(0,Math.min(100,stress+(Math.random()-.55)*.8));
+      if(breathRunning)stress=Math.max(0,stress-0.6);
+      stress=Math.round(stress);
+      coherence=Math.max(.5,Math.min(6.5,coherence+(Math.random()-.4)*.15));
+      spo2=Math.max(96,Math.min(100,spo2+(Math.random()-.4)*.1));
+      updateDataTab();
+    }
+  }
+  updatePPGUI();
+  drawWave();
+  ppgAF=requestAnimationFrame(ppgLoop);
+}
+
+// ── PPG UI ───────────────────────────────────────────────────────
+function updatePPGUI(){
+  const qc=signalQ<15?'#4a6070':signalQ<35?'#ffb830':'#00e5a0';
+  const ql=signalQ<5?'אין אצבע':signalQ<15?'חלש':signalQ<35?'בינוני':'טוב ✓';
+  document.getElementById('qbar').style.width=signalQ+'%';
+  document.getElementById('qbar').style.background=qc;
+  document.getElementById('qtext').textContent=ppgRunning?`אות: ${signalQ}% · ${ql}`:'';
+  document.getElementById('qtext').style.color=qc;
+  document.getElementById('mcQ').textContent=ppgRunning?signalQ+'%':'--';
+  document.getElementById('mcQ').style.color=qc;
+  document.getElementById('mcQS').textContent=ppgRunning?ql:'ממתין';
+  document.getElementById('mcT').textContent=ppgElapsed+'s';
+  document.getElementById('mcTS').textContent=ppgElapsed>=15?'✓ מספיק':'נדרש 15s';
+  if(bpm){
+    const bc=bpm<60?'#38bdf8':bpm<100?'#00e5a0':bpm<120?'#ffb830':'#ff3b5c';
+    const bz=bpm<60?'קצב נמוך':bpm<100?'✓ תקין':bpm<120?'גבוה':'⚠ גבוה מאוד';
+    document.getElementById('bpmNum').textContent=bpm;
+    document.getElementById('bpmNum').style.color=bc;
+    document.getElementById('bpmZone').textContent=bz;
+    document.getElementById('bpmZone').style.color=bc;
+    document.getElementById('mcMax').textContent=bpmMax||'--';
+    document.getElementById('mcMin').textContent=bpmMin||'--';
+    document.getElementById('dBpm').textContent=bpm;
+    document.getElementById('hrInBreath').textContent=`HR: ${bpm} bpm`;
+    document.getElementById('hrInBreath').style.color=bpm<80?'#00e5a0':'#ffb830';
+  }
+  if(hrv)document.getElementById('dHrv').textContent=hrv;
+}
+
+function updateDataTab(){
+  const sc=stress<40?'#00d4aa':stress<65?'#ffb830':'#ff3b5c';
+  const sl=stress<40?'נמוך':stress<65?'בינוני':'גבוה';
+  document.getElementById('stressNum').textContent=Math.round(stress);
+  document.getElementById('stressNum').style.fill=sc;
+  document.getElementById('stressLbl').textContent=sl;
+  document.getElementById('stressLbl').style.fill=sc;
+  document.getElementById('needle').setAttribute('transform',`rotate(${-135+stress*2.7},90,100)`);
+  document.getElementById('needle').querySelector('line').style.stroke=sc;
+  document.getElementById('needle').querySelector('circle').style.fill=sc;
+  document.getElementById('gaugeArc').setAttribute('stroke-dasharray',`${stress*2.2} 220`);
+  document.getElementById('dSpo2').textContent=spo2.toFixed(1);
+  document.getElementById('dCoher').textContent=coherence.toFixed(1);
+  document.getElementById('bCoher').textContent=coherence.toFixed(1);
+  const rec=stress>65?'🔴 לחץ גבוה — הפעל נשימת 4-7-8 למשך 5 דקות':stress>40?'🟡 לחץ בינוני — נסה Box Breathing ל-5 מחזורים':'🟢 לחץ נמוך — המשך Coherent Breathing לשמירת HRV';
+  document.getElementById('recText').textContent=rec;
+}
+
+// ── Waveform ─────────────────────────────────────────────────────
+function drawWave(){
+  const c=document.getElementById('waveCanvas');
+  const dpr=window.devicePixelRatio||1;
+  c.width=c.offsetWidth*dpr;c.height=c.offsetHeight*dpr;
+  const ctx=c.getContext('2d');ctx.scale(dpr,dpr);
+  const W=c.offsetWidth,H=c.offsetHeight;
+  ctx.clearRect(0,0,W,H);
+  const sig=waveBuf;
+  if(sig.length<4){ctx.fillStyle='#4a6070';ctx.font='11px sans-serif';ctx.textAlign='center';ctx.fillText('ממתין לאות...',W/2,H/2);return;}
+  const show=Math.min(sig.length,160),seg=sig.slice(-show);
+  const mn=Math.min(...seg),mx=Math.max(...seg)||1,rng=mx-mn||1;
+  const col=signalQ>40?'#ff3b5c':signalQ>15?'#ffb830':'#4a6070';
+  const grad=ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,col+'44');grad.addColorStop(1,col+'00');
+  ctx.beginPath();
+  seg.forEach((v,i)=>{const x=i/(show-1)*W,y=H-((v-mn)/rng)*(H-6)-3;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
+  ctx.beginPath();
+  seg.forEach((v,i)=>{const x=i/(show-1)*W,y=H-((v-mn)/rng)*(H-6)-3;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+  ctx.strokeStyle=col;ctx.lineWidth=2;ctx.lineJoin='round';ctx.stroke();
+}
+
+// ── Toggle PPG ───────────────────────────────────────────────────
+async function togglePPG(){
+  if(!ppgRunning){
+    let s;
+    try{s=await navigator.mediaDevices.getUserMedia({video:{facingMode:{exact:'environment'},width:{ideal:320},height:{ideal:240},frameRate:{ideal:30}}});}
+    catch{try{s=await navigator.mediaDevices.getUserMedia({video:{frameRate:{ideal:30}}});}catch(e){alert('שגיאה: '+e.message);return;}}
+    stream=s;vid.srcObject=s;await vid.play();
+    track=s.getVideoTracks()[0];
+    try{await track.applyConstraints({advanced:[{torch:true}]});document.getElementById('torchWarn').classList.remove('show');}
+    catch{document.getElementById('torchWarn').classList.add('show');}
+    redBuf=[];tsBuf=[];waveBuf=[];bpmHist=[];
+    bpm=null;bpmMin=null;bpmMax=null;hrv=null;ppgElapsed=0;signalQ=0;
+    ppgRunning=true;
+    document.getElementById('fingerIcon').classList.add('active');
+    document.getElementById('fingerText').textContent='הנח אצבע על העדשה האחורית';
+    document.getElementById('fingerText').classList.add('active');
+    document.getElementById('dot').classList.add('on');
+    document.getElementById('fabPPG').textContent='⏹ עצור PPG';
+    document.getElementById('fabPPG').classList.remove('off');
+    ppgTimer=setInterval(()=>{ppgElapsed++;},1000);
+    ppgAF=requestAnimationFrame(ppgLoop);
+  } else {
+    ppgRunning=false;
+    cancelAnimationFrame(ppgAF);
+    clearInterval(ppgTimer);
+    try{track?.applyConstraints({advanced:[{torch:false}]});}catch{}
+    stream?.getTracks().forEach(t=>t.stop());stream=null;
+    document.getElementById('fingerIcon').classList.remove('active');
+    document.getElementById('fingerText').textContent='לחץ "התחל PPG" כדי למדוד';
+    document.getElementById('fingerText').classList.remove('active');
+    document.getElementById('dot').classList.remove('on');
+    document.getElementById('fabPPG').textContent='📷 התחל PPG';
+    document.getElementById('fabPPG').classList.add('off');
+  }
+}
+
+// ── Breathing ────────────────────────────────────────────────────
+const phaseColors={inhale:'#00d4aa',hold:'#a78bfa',exhale:'#38bdf8'};
+const phaseLabels={inhale:'שאיפה',hold:'החזקה',exhale:'נשיפה'};
+
+function toggleBreath(){
+  if(!breathRunning){
+    breathRunning=true;breathElapsed=0;breathStartStress=stress;
+    const pat=PATTERNS[selPat];
+    const phases=[{n:'inhale',d:pat.inhale},...(pat.hold>0?[{n:'hold',d:pat.hold}]:[]),{n:'exhale',d:pat.exhale}];
+    let pi=0,pt=0;const TICK=50,t0=Date.now();
+    document.getElementById('breathMetrics').style.display='grid';
+    document.getElementById('fabBreath').textContent='⏹ עצור נשימה';
+    document.getElementById('fabBreath').classList.remove('off');
+    breathTimer=setInterval(()=>{
+      breathElapsed=Math.floor((Date.now()-t0)/1000);
+      pt+=TICK/1000;
+      const cur=phases[pi];
+      const prog=Math.min(pt/cur.d,1);
+      const scale=cur.n==='inhale'?0.55+(1-0.55)*prog:cur.n==='hold'?1:1-(1-0.55)*prog;
+      const sz=Math.round(160*scale);
+      const col=phaseColors[cur.n];
+      const core=document.getElementById('breathCore');
+      core.style.width=sz+'px';core.style.height=sz+'px';
+      core.style.borderColor=col;
+      core.style.background=`radial-gradient(circle at 38% 38%,${col}44,${col}18)`;
+      core.style.boxShadow=`0 0 40px ${col}33`;
+      const ph=document.getElementById('bPhase'),ct=document.getElementById('bCount');
+      if(!ph){
+        core.innerHTML=`<span id="bPhase" style="font-size:10px;letter-spacing:2px;font-weight:700;color:${col}">${phaseLabels[cur.n]}</span><span id="bCount" style="font-family:monospace;font-size:28px;font-weight:700;color:#dde6f0">${Math.ceil(cur.d*(1-prog))}</span>`;
+      } else {
+        ph.textContent=phaseLabels[cur.n];ph.style.color=col;
+        ct.textContent=Math.ceil(cur.d*(1-prog));
+      }
+      document.getElementById('bprog').style.width=(prog*100)+'%';
+      document.getElementById('bprog').style.background=col;
+      document.getElementById('bElapsed').textContent=breathElapsed+'s';
+      coherence=Math.max(.5,Math.min(6.5,coherence+(Math.random()-.35)*.1));
+      document.getElementById('bCoher').textContent=coherence.toFixed(1);
+      if(pt>=cur.d){pt=0;pi=(pi+1)%phases.length;}
+    },TICK);
+  } else {
+    breathRunning=false;
+    clearInterval(breathTimer);
+    const reduction=Math.max(0,Math.round(breathStartStress-stress));
+    breathSessions.push({
+      time:new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}),
+      pat:selPat,dur:breathElapsed,red:reduction
+    });
+    const core=document.getElementById('breathCore');
+    core.style.width='90px';core.style.height='90px';
+    core.style.borderColor='#00d4aa';core.style.background='radial-gradient(circle at 38% 38%,rgba(0,212,170,.27),rgba(0,212,170,.1))';
+    core.style.boxShadow='none';core.innerHTML='<span style="font-size:28px">🫁</span>';
+    document.getElementById('bprog').style.width='0';
+    document.getElementById('breathMetrics').style.display='none';
+    document.getElementById('fabBreath').textContent='▶ נשימה';
+    document.getElementById('fabBreath').classList.add('off');
+    // update sessions
+    const sl=document.getElementById('sessList');
+    sl.innerHTML=breathSessions.slice(-4).reverse().map(s=>`
+      <div class="sess-row">
+        <span style="color:#4a6070">${s.time}</span>
+        <span>${s.pat} · ${s.dur}s</span>
+        <span style="color:#00d4aa;font-family:monospace">-${s.red}% לחץ</span>
+      </div>`).join('');
+    document.getElementById('sessCard').style.display='block';
+  }
+}
+</script>
+</body>
+</html>
